@@ -1,10 +1,8 @@
 from database.models import Conversation, Message, User
 from database.db import initialize_db
-from bson import json_util
-from flask_socketio import SocketIO, send, emit, join_room, rooms, leave_room
-from flask import Flask, render_template, request, Response, jsonify
+from flask_socketio import SocketIO, emit, join_room, rooms, leave_room
+from flask import Flask, request, Response
 import json
-from datetime import datetime
 
 from utilis.GetConversationId import GetConversationId
 from utilis.JSONEncoder import MongoengineEncoder
@@ -37,30 +35,13 @@ def index():
 @app.route('/user/<userId>/conversations')
 def get_conversationById(userId):
     print(userId)
+    # conversation = Conversation.objects.get().filter().to_json()
+
     conversation = Conversation.objects.filter(
-        Q(userOne=userId) | Q(userTwo=userId)).to_json()
+        Q(userOneId=userId) | Q(userTwoId=userId)).to_json()
+    print("conversation", conversation)
     return Response(conversation, mimetype="application/json", status=200)
 
-# Add New Conversation.
-# @app.route('/conversations', methods=['POST'])
-# def add_conversation():
-#     body = request.get_json()
-#     conversation = Conversation(**body).save()
-#     id = conversation.id
-#     return {'id': str(id)}, 200
-
-# # Update Converateion By Id.
-# @app.route('/conversations/<id>', methods=['PUT'])
-# def update_conversation(id):
-#     body = request.get_json()
-#     Conversation.objects.get(id=id).update(**body)
-#     return 'Converateion {""} updated', 200
-
-# # Delete Conversation By Id.
-# @app.route('/conversations/<id>', methods=['DELETE'])
-# def delete_conversation(id):
-#     Conversation.objects.get(id=id).delete()
-#     return '', 200
 
 # Socket Events
 # 1: built in event on conncet lisen for users connection
@@ -72,81 +53,67 @@ def handleConnect():
 @socketio.on('startConversation')
 def handlStartConversation(data):
     try:
-        _userOne = User(userId=str(data['userOne']['userId']), userName=data['userOne']
-                        ['userName'], avatar=data['userOne']['avatar'])
-        _userTwo = User(userId=str(data['userTwo']['userId']), userName=data['userTwo']
-                        ['userName'], avatar=data['userTwo']['avatar'])
+        # try to create new conversation.
         conversation = Conversation(
-            userOne=_userOne, userTwo=_userTwo).save()
-        print("new conversationId:: " + str(conversation.conversationId))
-        join_room(str(conversation.conversationId))
-        emit("conversationOpen", {"conversationId": conversation.conversationId, "messages": [{"msg": "This is the bgining of the conversation", "time": datetime.now().ctime()}]},
-             room=conversation.conversationId)
+            userOneId=data['userOneId'], userTwoId=data['userTwoId']).save()
+        # convert the conversation to Python Dictionary.
+        conversation = json.loads(conversation.to_json())
 
+        print("new conversationId:: " + conversation['conversationId'])
+        # join conversation
+        join_room(str(conversation['conversationId']))
+        # send the conversationId and the messages array
+        emit("conversationOpen", {"conversationId": conversation['conversationId'], "messages": conversation['messages']},
+             room=conversation['conversationId'])
+
+    # if the conversation already exist.
     except (NotUniqueError, DuplicateKeyError):
+        # get the old conversationId
         oldConversationId = GetConversationId(
-            str(data['userOne']['userId']), str(data['userOne']['userId']))
+            data['userOneId'], data['userTwoId'])
+
         print("they are already In Conversation " + oldConversationId)
+        # join the old conversation
         join_room(oldConversationId)
-        print("user ", data['userOne']['userName'],
-              " joind room", oldConversationId)
 
-        conversation = json.loads(Conversation(
+        print("oldConversationId ", oldConversationId)
+
+        # convert the old conversation to Python Dictionary.
+        conversation = json.loads(Conversation.objects.get(
             conversationId=oldConversationId).to_json())
-        # for con in conversation:
-        # test = MongoengineEncoder(conversation)
-        # print("con", test)
-        print("Conversations " + str(conversation))
 
+        # send the conversationId and the old messages array
         emit("conversationOpen", {"conversationId": conversation['conversationId'], "messages": conversation['messages']},
              room=oldConversationId)
+
     except Exception as e:
         print("Something want wrong: ", e)
-        # print("request.sid " + request.sid)
-        # emit('alreadyInConversation',
-        #      "Already In Conversation " + conversationId, room=conversationId)
-
-    # I make this condiatian
-    # userOne = data['userId'] if data['userId'] < data['receiverId'] else data['receiverId']
-    # userTwo = data['userId'] if data['userId'] > data['receiverId'] else data['receiverId']
-    # conversationId = str(userOne) + str(userTwo)
-
-    # conversation = Conversation(**body).save()
-    # id = conversation.id
-    # join_room(conversationId)
-    # # send the conversationId back to the user who s
-    # emit("conversationId", data=conversationId, room=data['userId'])
-    # print("conversationId ", conversationId)
-    # _conversations = Conversation.objects(conversationId=conversationId)
-    # if(not _conversations):
-    #     Conversation(userOne=userOne, userTwo=userTwo,).save()
-    # for u in _conversations:
-    #     print("result:: ", u.id, u.userOne, u.userTwo, str(u.startDate))
-    # print("op ", str(ob))
-    # print("_conversation: ", json_util.dumps(_conversation))
-    # emit("test", json_util.dumps(_conversation))
-    # sender = data['userId'] if
-    # newConversation = {
-    #     "userOne": data['userId'],
-    #     "userTwo": "2",
-    #     "startDate": "2020-04-24",
-    #     "lastUdate": "2020-04-24",
-    #     "messages": [{ "msg": "hi..", "time": "2020-04-24" }]
-    # }
-    # Conversation(data.get_json()).save()
 
 
 @socketio.on('message')
 def handleMessage(data):
+    # data: contain {  message: { _id: uuid4, text: "", user: {_id: "", name: "", avatar: ""}, createdAt: "" }, conversationId: "1" }
+    # convert the data to python Dictionary
     data = json.loads(data)
+    # send the new message to conversation
     emit("message", data['message'], room=data['conversationId'])
-    conversation = Conversation.objects(
+
+    # set the sender
+    sender = User(_id=data['message']['user']['_id'], name=data['message']
+                  ['user']['name'], avatar=data['message']['user']['avatar'])
+    # set the new message
+    newMessage = Message(
+        _id=data['message']['_id'], createdAt=str(data['message']['createdAt']), text=data['message']['text'], user=sender)
+
+    # get the conversation
+    conversation = Conversation.objects.get(
         conversationId=str(data['conversationId']))
-    print("conversation in handleMessage ", conversation)
-    # conversation.messages.append(Message(
-    #     _id=data['message']['_id'], time=data['message']['time'], msg=data['message']['msg']))
-    # conversation.save()
-    print("new message to conversationId", str(data['conversationId']))
+
+    # add the new message to messages in the conversation
+    conversation.messages.append(newMessage)
+    # save the chages on the database
+    conversation.save()
+    print("new message to conversationId ", str(data['conversationId']))
 
 
 @socketio.on('leaveConversation')

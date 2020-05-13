@@ -1,51 +1,48 @@
 from .db import db
 from datetime import datetime
-from bson.objectid import ObjectId
+# from bson.objectid import ObjectId
+import uuid
 
 from utilis.GetConversationId import GetConversationId
 
 
-class Message(db.EmbeddedDocument):
-    _id = db.ObjectIdField(required=True, default=lambda: ObjectId())
-    time = db.DateTimeField(required=True)
-    msg = db.StringField(required=True)
-
-
 class User(db.EmbeddedDocument):
-    userId = db.StringField(required=True)
-    userName = db.StringField(required=True)
+    _id = db.StringField(required=True)
+    name = db.StringField(required=True)
     avatar = db.StringField(required=True)
 
 
-class Conversation(db.Document):
-    userOne = db.EmbeddedDocumentField(User)
-    userTwo = db.EmbeddedDocumentField(User)
-    conversationId = db.StringField(unique=True)
-    startDate = db.DateTimeField()
-    lastUdate = db.DateTimeField(default=datetime.now().ctime(), required=True)
-    messages = db.ListField(db.EmbeddedDocumentField(Message))
+class Message(db.EmbeddedDocument):
+    _id = db.UUIDField(required=True, binary=False,
+                       default=lambda: uuid.uuid4())
+    createdAt = db.StringField(required=True, default=datetime.now().ctime())
+    text = db.StringField(required=True)
+    user = db.EmbeddedDocumentField(User)
+    image = db.StringField()
 
-    # def __repr__(self):
-    #     return {"conversationId": self.conversationId,  "messages": self.messages, "startDate": self.startDate, "lastUdate": self.lastUdate}
-    # return '<Conversation %r>' % (self.conversationId)
+
+class Conversation(db.Document):
+    userOneId = db.StringField(required=True)
+    userTwoId = db.StringField(required=True)
+    conversationId = db.StringField(unique=True)
+    createdAt = db.DateTimeField()
+    updatedAt = db.DateTimeField(default=datetime.now().ctime(), required=True)
+    messages = db.ListField(db.EmbeddedDocumentField(Message))
 
     def save(self, *args, **kwargs):
 
-        if not self.startDate:
-            self.startDate = datetime.now().ctime()
+        if not self.createdAt:
+            self.createdAt = datetime.now().ctime()
 
-        self.lastUdate = datetime.now().ctime()
+        self.updatedAt = datetime.now().ctime()
 
         if not self.messages:
-            self.messages = [Message(time=datetime.now(
-            ), msg="First Message Initial Message Sender " + self.userOne['userName'])]
+            self.messages = [Message(createdAt=str(datetime.now().ctime()), text="First Message Initial Message Sender Bot who open the conversation " + self.userOneId, user=User(
+                _id="0", name="Bot", avatar="https://image.freepik.com/free-vector/gamer-mascot-geek-boy-esports-logo-avatar-with-headphones-glasses-cartoon-character_8169-228.jpg"))]
 
         if not self.conversationId:
             # to make the smaller number always first.
-
             self.conversationId = GetConversationId(
-                self.userOne['userId'], self.userTwo['userId'])
-            print("self.userOne['userId']", self.userOne['userId'],
-                  "self.userTwo['userId']", self.userTwo['userId'])
+                self.userOneId, self.userTwoId)
 
         return super(Conversation, self).save(*args, **kwargs)
