@@ -1,4 +1,4 @@
-from database.models import Conversation, Message, User
+from database.models import Conversation, Message, User, Sender
 from database.db import initialize_db
 from flask_socketio import SocketIO, emit, join_room, rooms, leave_room
 from flask import Flask, request, Response
@@ -38,7 +38,7 @@ def get_conversationById(userId):
     # conversation = Conversation.objects.get().filter().to_json()
 
     conversation = Conversation.objects.filter(
-        Q(userOneId=userId) | Q(userTwoId=userId)).to_json()
+        Q(userOne__id=userId) | Q(userTwo__id=userId)).to_json()
     print("conversation", conversation)
     return Response(conversation, mimetype="application/json", status=200)
 
@@ -52,10 +52,11 @@ def handleConnect():
 
 @socketio.on('startConversation')
 def handlStartConversation(data):
+    print("data in startconver ", data)
     try:
         # try to create new conversation.
         conversation = Conversation(
-            userOneId=data['userOneId'], userTwoId=data['userTwoId']).save()
+            userOne=User(id=data['userOne']['id'], name=data['userOne']['name'], avatar=data['userOne']['avatar']), userTwo=User(id=data['userTwo']['id'], name=data['userTwo']['name'], avatar=data['userTwo']['avatar'])).save()
         # convert the conversation to Python Dictionary.
         conversation = json.loads(conversation.to_json())
 
@@ -65,12 +66,12 @@ def handlStartConversation(data):
         # send the conversationId and the messages array
         emit("conversationOpen", {"conversationId": conversation['conversationId'], "messages": conversation['messages']},
              room=conversation['conversationId'])
-
+        print("try end")
     # if the conversation already exist.
     except (NotUniqueError, DuplicateKeyError):
         # get the old conversationId
         oldConversationId = GetConversationId(
-            data['userOneId'], data['userTwoId'])
+            data['userOne']['id'], data['userTwo']['id'])
 
         print("they are already In Conversation " + oldConversationId)
         # join the old conversation
@@ -92,15 +93,16 @@ def handlStartConversation(data):
 
 @socketio.on('message')
 def handleMessage(data):
-    # data: contain {  message: { _id: uuid4, text: "", user: {_id: "", name: "", avatar: ""}, createdAt: "" }, conversationId: "1" }
+    # data: contain {  message: { _id: uuid4, text: "", user: {_id: "", name: "", avatar: ""}, createdAt: "" }, conversationId: "1", receiverId: "" }
     # convert the data to python Dictionary
     data = json.loads(data)
+    print("data['receiverId'] ", data['receiverId'])
     # send the new message to conversation
     emit("message", data['message'], room=data['conversationId'])
 
     # set the sender
-    sender = User(_id=data['message']['user']['_id'], name=data['message']
-                  ['user']['name'], avatar=data['message']['user']['avatar'])
+    sender = Sender(_id=data['message']['user']['_id'], name=data['message']
+                    ['user']['name'], avatar=data['message']['user']['avatar'])
     # set the new message
     newMessage = Message(
         _id=data['message']['_id'], createdAt=str(data['message']['createdAt']), text=data['message']['text'], user=sender)
