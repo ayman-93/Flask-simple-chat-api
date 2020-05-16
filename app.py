@@ -82,7 +82,7 @@ def handlStartConversation(data):
         # convert the old conversation to Python Dictionary.
         conversation = json.loads(Conversation.objects.get(
             conversationId=oldConversationId).to_json())
-
+        conversation['messages'].reverse()
         # send the conversationId and the old messages array
         emit("conversationOpen", {"conversationId": conversation['conversationId'], "messages": conversation['messages']},
              room=oldConversationId)
@@ -96,8 +96,10 @@ def handleMessage(data):
     # data: contain {  message: { _id: uuid4, text: "", user: {_id: "", name: "", avatar: ""}, createdAt: "" }, conversationId: "1", receiverId: "" }
     # convert the data to python Dictionary
     data = json.loads(data)
-    print("data['receiverId'] ", data['receiverId'])
+    # print("data['receiverId'] ", data['receiverId'])
     # send the new message to conversation
+    print("message ", data['message'],
+          " conversationId ", data['conversationId'])
     emit("message", data['message'], room=data['conversationId'])
 
     # set the sender

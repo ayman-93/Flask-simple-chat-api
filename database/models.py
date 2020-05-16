@@ -25,6 +25,7 @@ class Message(db.EmbeddedDocument):
     text = db.StringField(required=True)
     user = db.EmbeddedDocumentField(Sender)
     image = db.StringField()
+    video = db.StringField()
 
 
 class Conversation(db.Document):
