@@ -1,4 +1,4 @@
-from database.models import Conversation, Message, User, Sender
+from database.models import Conversation, Message, User
 from database.db import initialize_db
 from flask_socketio import SocketIO, emit, join_room, rooms, leave_room
 from flask import Flask, request, Response
@@ -42,6 +42,34 @@ def get_conversationById(userId):
     print("conversation", conversation)
     return Response(conversation, mimetype="application/json", status=200)
 
+# update user
+@app.route("/userUpdateInfo", methods=['POST'])
+def edit_conversiton():
+    # get user data from the body as json.
+    userData = request.json
+    userId = userData['id']
+    userName = userData['name']
+    userAvatar = userData['avatar']
+
+    # get the user conversations
+    conversations = Conversation.objects.filter(
+        Q(userOne__id=userId) | Q(userTwo__id=userId))
+
+    # update the user information in his all conversations.
+    for conversation in conversations:
+        if(userId == conversation.userOne.id):
+            conversation.userOne.name = userName
+            conversation.userOne.avatar = userAvatar
+        elif(userId == conversation.userTwo.id):
+            conversation.userTwo.name = userName
+            conversation.userTwo.avatar = userAvatar
+        try:
+            conversation.save()
+        except Exception as e:
+            return {"success": False, "msg": "Something Wron.."}
+            print("update user info something wrong, ", e)
+    return {"success": True, "msg": "User Updated.."}
+
 
 # Socket Events
 # 1: built in event on conncet lisen for users connection
@@ -54,9 +82,18 @@ def handleConnect():
 def handlStartConversation(data):
     print("data in startconver ", data)
     try:
+        USER_ONE = User(_id=data['userOne']['id'], name=data['userOne']
+                        ['name'], avatar=data['userOne']['avatar']).save()
+        USER_TWO = User(_id=data['userTwo']['id'], name=data['userOne']
+                        ['name'], avatar=data['userTwo']['avatar']).save()
+
         # try to create new conversation.
-        conversation = Conversation(
-            userOne=User(id=data['userOne']['id'], name=data['userOne']['name'], avatar=data['userOne']['avatar']), userTwo=User(id=data['userTwo']['id'], name=data['userTwo']['name'], avatar=data['userTwo']['avatar'])).save()
+        Conversation(
+            userOne=USER_ONE, userTwo=USER_TWO).to_dbref().save()
+
+        # conversation.save()
+
+        print('done......................')
         # convert the conversation to Python Dictionary.
         conversation = json.loads(conversation.to_json())
 
@@ -103,11 +140,11 @@ def handleMessage(data):
     emit("message", data['message'], room=data['conversationId'])
 
     # set the sender
-    sender = Sender(_id=data['message']['user']['_id'], name=data['message']
-                    ['user']['name'], avatar=data['message']['user']['avatar'])
+    user = User(_id=data['message']['user']['_id'], name=data['message']
+                ['user']['name'], avatar=data['message']['user']['avatar']).save()
     # set the new message
     newMessage = Message(
-        _id=data['message']['_id'], createdAt=str(data['message']['createdAt']), text=data['message']['text'], user=sender)
+        _id=data['message']['_id'], createdAt=str(data['message']['createdAt']), text=data['message']['text'], user=user).save()
 
     # get the conversation
     conversation = Conversation.objects.get(

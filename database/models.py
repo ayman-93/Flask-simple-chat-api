@@ -6,16 +6,16 @@ import uuid
 from utilis.GetConversationId import GetConversationId
 
 
-class User(db.EmbeddedDocument):
-    id = db.StringField(required=True)
-    name = db.StringField(required=True)
-    avatar = db.StringField(required=True)
-
-
-class Sender(db.EmbeddedDocument):
+class User(db.Document):
     _id = db.StringField(required=True)
     name = db.StringField(required=True)
     avatar = db.StringField(required=True)
+
+
+# class Sender(db.EmbeddedDocument):
+#     _id = db.StringField(required=True)
+#     name = db.StringField(required=True)
+#     avatar = db.StringField(required=True)
 
 
 class Message(db.EmbeddedDocument):
@@ -23,14 +23,14 @@ class Message(db.EmbeddedDocument):
                        default=lambda: uuid.uuid4())
     createdAt = db.StringField(required=True, default=datetime.now().ctime())
     text = db.StringField(required=True)
-    user = db.EmbeddedDocumentField(Sender)
+    user = db.ReferenceField('User')
     image = db.StringField()
     video = db.StringField()
 
 
 class Conversation(db.Document):
-    userOne = db.EmbeddedDocumentField(User)
-    userTwo = db.EmbeddedDocumentField(User)
+    userOne = db.ReferenceField(User)
+    userTwo = db.ReferenceField(User)
     conversationId = db.StringField(unique=True)
     createdAt = db.DateTimeField()
     updatedAt = db.DateTimeField(default=datetime.now().ctime(), required=True)
@@ -43,16 +43,18 @@ class Conversation(db.Document):
 
         self.updatedAt = datetime.now().ctime()
 
-        if not self.messages:
-            self.messages = [Message(createdAt=str(datetime.now().ctime()), text="First Message Initial Message Sender Bot who open the conversation " + self.userOne['name'], user=Sender(
-                _id="0", name="Bot", avatar="https://image.freepik.com/free-vector/gamer-mascot-geek-boy-esports-logo-avatar-with-headphones-glasses-cartoon-character_8169-228.jpg"))]
-            print("assign message")
+        # if not self.messages:
+        #     USER = User(
+        #         _id="0", name="Bot", avatar="https://image.freepik.com/free-vector/gamer-mascot-geek-boy-esports-logo-avatar-with-headphones-glasses-cartoon-character_8169-228.jpg").save()
+        #     self.messages = [Message(createdAt=str(datetime.now().ctime(
+        #     )), text="First Message Initial Message Sender Bot who open the conversation " + self.userOne['name'], user=USER)]
+        #     print("assign message")
 
         if not self.conversationId:
             print("assing conversationId")
             # to make the smaller number always first.
             self.conversationId = GetConversationId(
-                self.userOne['id'], self.userTwo['id'])
+                self.userOne['_id'], self.userTwo['_id'])
             print("assing conversationId end")
 
         return super(Conversation, self).save(*args, **kwargs)
