@@ -2,6 +2,7 @@ from .db import db
 from datetime import datetime
 from bson.objectid import ObjectId
 import uuid
+import json
 
 from utilis.GetConversationId import GetConversationId
 
@@ -21,12 +22,23 @@ class User(db.Document):
     def getUserConversation(self):
         userConversations = []
         for conversation in self.conversations:
+            # remove unnecessary fields: _id and conversations from users
+            userOne = json.loads(conversation.userOne.to_json())
+            userTwo = json.loads(conversation.userTwo.to_json())
+            userOne.pop('_id', None)
+            userOne.pop('conversations', None)
+            userTwo.pop('_id', None)
+            userTwo.pop('conversations', None)
+            conversation['userOne'] = userOne
+            conversation['userTwo'] = userTwo
+
+            # retrive the messages from the Conversation doc by referance instaded of the referance id.
             messages = []
             for message in conversation.messages:
                 messages.append({"_id": str(message._id), "createdAt": message.createdAt, "text": message.text, "user": {
                     "_id": message.user.userId, "name": message.user.name, "avatar": message.user.avatar}})
             userConversations.append(
-                {"userOne": conversation.userOne.userId, "userTwo": conversation.userTwo.userId, "conversationId": conversation.conversationId, "messages": messages})
+                {"userOne": conversation.userOne, "userTwo": conversation.userTwo, "conversationId": conversation.conversationId, "messages": messages})
         return userConversations
 
 # class Sender(db.EmbeddedDocument):
