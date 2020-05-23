@@ -36,11 +36,14 @@ def index():
 def get_conversationById(userId):
     print(userId)
     # conversation = Conversation.objects.get().filter().to_json()
-
-    conversation = Conversation.objects.filter(
-        Q(userOne__id=userId) | Q(userTwo__id=userId)).to_json()
-    print("conversation", conversation)
-    return Response(conversation, mimetype="application/json", status=200)
+    userConversations = User.objects(
+        userId=userId).first().getUserConversation()
+    # conversation = Conversation.objects.filter(
+    #     Q(userOne__id=userId) | Q(userTwo__id=userId)).to_json()
+    # test = json.loads(userConversations)
+    print("\n\nconversation", userConversations, "\n\n\n")
+    # return "test"
+    return Response(json.dumps(userConversations), mimetype="application/json", status=200)
 
 # update user
 @app.route("/userUpdateInfo", methods=['POST'])
@@ -51,24 +54,13 @@ def edit_conversiton():
     userName = userData['name']
     userAvatar = userData['avatar']
 
-    # get the user conversations
-    conversations = Conversation.objects.filter(
-        Q(userOne__id=userId) | Q(userTwo__id=userId))
+    try:
+        User.objects(userId=userId).update(name=userName, avatar=userAvatar)
+        return {"success": True, "msg": "User Updated.."}
 
-    # update the user information in his all conversations.
-    for conversation in conversations:
-        if(userId == conversation.userOne.id):
-            conversation.userOne.name = userName
-            conversation.userOne.avatar = userAvatar
-        elif(userId == conversation.userTwo.id):
-            conversation.userTwo.name = userName
-            conversation.userTwo.avatar = userAvatar
-        try:
-            conversation.save()
-        except Exception as e:
-            return {"success": False, "msg": "Something Wron.."}
-            print("update user info something wrong, ", e)
-    return {"success": True, "msg": "User Updated.."}
+    except Exception as e:
+        return {"success": False, "msg": "Something Wron.."}
+        print("update user info something wrong, ", e)
 
 
 # Socket Events
@@ -80,48 +72,63 @@ def handleConnect():
 
 @socketio.on('startConversation')
 def handlStartConversation(data):
-    print("data in startconver ", data)
+
     try:
-        USER_ONE = User(_id=data['userOne']['id'], name=data['userOne']
+        USER_ONE = User(userId=data['userOne']['id'], name=data['userOne']
                         ['name'], avatar=data['userOne']['avatar']).save()
-        USER_TWO = User(_id=data['userTwo']['id'], name=data['userOne']
+    except (NotUniqueError, DuplicateKeyError):
+        # print("user one exist in db")
+        USER_ONE = User.objects.get(userId=data['userOne']['id'])
+    try:
+        USER_TWO = User(userId=data['userTwo']['id'], name=data['userTwo']
                         ['name'], avatar=data['userTwo']['avatar']).save()
+    except (NotUniqueError, DuplicateKeyError):
+        # print("user two exist in db")
+        USER_TWO = User.objects.get(userId=data['userTwo']['id'])
 
         # try to create new conversation.
-        Conversation(
-            userOne=USER_ONE, userTwo=USER_TWO).to_dbref().save()
+    try:
+        # create the conversation.
+        conversation = Conversation(userOne=USER_ONE, userTwo=USER_TWO)
+        conversation.save()
 
-        # conversation.save()
+        # add conversation reference to userOne
+        USER_ONE.addConversation(conversation.pk)
+        # add conversation reference to userTwo
+        USER_TWO.addConversation(conversation.pk)
 
-        print('done......................')
         # convert the conversation to Python Dictionary.
         conversation = json.loads(conversation.to_json())
 
-        print("new conversationId:: " + conversation['conversationId'])
         # join conversation
         join_room(str(conversation['conversationId']))
+        print('join new conversationId ', str(conversation['conversationId']))
         # send the conversationId and the messages array
         emit("conversationOpen", {"conversationId": conversation['conversationId'], "messages": conversation['messages']},
              room=conversation['conversationId'])
-        print("try end")
+
     # if the conversation already exist.
     except (NotUniqueError, DuplicateKeyError):
         # get the old conversationId
         oldConversationId = GetConversationId(
             data['userOne']['id'], data['userTwo']['id'])
 
-        print("they are already In Conversation " + oldConversationId)
+        # print("they are already In Conversation " + oldConversationId)
         # join the old conversation
         join_room(oldConversationId)
 
-        print("oldConversationId ", oldConversationId)
+        print("join oldConversationId ", oldConversationId)
+
+        # getMessages will return the messages with user(sender) details _id, name and avatart.
+        messages = Conversation.objects(
+            conversationId=oldConversationId).first().getMessages()
 
         # convert the old conversation to Python Dictionary.
         conversation = json.loads(Conversation.objects.get(
             conversationId=oldConversationId).to_json())
         conversation['messages'].reverse()
         # send the conversationId and the old messages array
-        emit("conversationOpen", {"conversationId": conversation['conversationId'], "messages": conversation['messages']},
+        emit("conversationOpen", {"conversationId": conversation['conversationId'], "messages": messages},
              room=oldConversationId)
 
     except Exception as e:
@@ -140,11 +147,17 @@ def handleMessage(data):
     emit("message", data['message'], room=data['conversationId'])
 
     # set the sender
-    user = User(_id=data['message']['user']['_id'], name=data['message']
-                ['user']['name'], avatar=data['message']['user']['avatar']).save()
+    # try to get user from db.
+    try:
+        sender = User.objects.get(userId=data['message']['user']['_id'])
+        print("User in message from db", json.loads(sender.to_json()))
+    # if user does not exist.
+    except User.DoesNotExist:
+        sender = User(userId=data['message']['user']['_id'], name=data['message']
+                      ['user']['name'], avatar=data['message']['user']['avatar']).save()
     # set the new message
     newMessage = Message(
-        _id=data['message']['_id'], createdAt=str(data['message']['createdAt']), text=data['message']['text'], user=user).save()
+        _id=data['message']['_id'], createdAt=str(data['message']['createdAt']), text=data['message']['text'], user=sender)
 
     # get the conversation
     conversation = Conversation.objects.get(
