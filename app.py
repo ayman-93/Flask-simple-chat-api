@@ -10,6 +10,8 @@ from mongoengine.document import NotUniqueError
 from pymongo.errors import DuplicateKeyError
 from mongoengine.queryset.visitor import Q
 # import eventlet
+from server.sendChatMessage import sendChatMessage
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mysecret'
@@ -19,6 +21,8 @@ app.config["MONGODB_HOST"] = "mongodb+srv://ayman:753258@aymancluster-ddsk0.mong
 initialize_db(app)
 # for socketio
 # eventlet.monkey_patch()
+
+# eventlet.monkey_patch(socket=False)
 
 
 @app.route('/')
@@ -168,6 +172,11 @@ def handleMessage(data):
     conversation.save()
     print("new message to conversationId ", str(data['conversationId']))
 
+    # notification
+    #ch = sendChatMessage()
+    #res = ch.send(data['conversationId'], data['message']['user']['_id'], data['message']['user']['name'], data['receiverId'], 'receiverName', data['message']['text'])
+    #print ("notification response", str(res))
+
 
 @socketio.on('leaveConversation')
 def leaveConversation(conversationId):
@@ -183,4 +192,4 @@ def handleConnect():
 
 if __name__ == '__main__':
     # app.run(host='0.0.0.0', debug=True)
-    socketio.run(app, host='0.0.0.0', debug=True)
+    socketio.run(app)  # , host='0.0.0.0', debug=True)
