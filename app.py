@@ -37,12 +37,11 @@ def get_conversationById(userId):
     print(userId)
     # conversation = Conversation.objects.get().filter().to_json()
     userConversations = User.objects(
-        userId=userId).first().getUserConversation()
-    # conversation = Conversation.objects.filter(
-    #     Q(userOne__id=userId) | Q(userTwo__id=userId)).to_json()
-    # test = json.loads(userConversations)
-    print("\n\nconversation", userConversations, "\n\n\n")
-    # return "test"
+        userId=userId).first()
+    print("\n\n\nuserConversations ", userConversations)
+    if userConversations is None:
+        return Response(json.dumps({"msg": "no user found.."}))
+    userConversations = userConversations.getUserConversation()
     return Response(json.dumps(userConversations), mimetype="application/json", status=200)
 
 # update user

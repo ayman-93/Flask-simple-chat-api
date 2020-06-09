@@ -25,20 +25,35 @@ class User(db.Document):
             # remove unnecessary fields: _id and conversations from users
             userOne = json.loads(conversation.userOne.to_json())
             userTwo = json.loads(conversation.userTwo.to_json())
+            # conversation.pop('messages', None)
             userOne.pop('_id', None)
             userOne.pop('conversations', None)
             userTwo.pop('_id', None)
             userTwo.pop('conversations', None)
-            conversation['userOne'] = userOne
-            conversation['userTwo'] = userTwo
+            conversation.userOne = userOne
+            conversation.userTwo = userTwo
+            # print("conversation.messages::",
+            #       conversation['messages'][0].to_json())
 
-            # retrive the messages from the Conversation doc by referance instaded of the referance id.
-            messages = []
+            # conversation.pop("messages")
+            # msgsClone = []
+            # # retrive the messages from the Conversation doc by referance instaded of the referance id.
+            # for message in conversation.messages:
+            #     # print("message::::::::::before ", message)
+            #     msgsClone.append(json.loads(message.to_json()))
+            # print("message:::::::::: ", message)
+
+            # print("conversation.messages", msgsClone)
+            # print("\n\n\nconversation.messages",
+            #       str(json.loads(conversation.messages)), "\n\n\n")
+            msgsClone = []
             for message in conversation.messages:
-                messages.append({"_id": str(message._id), "createdAt": message.createdAt, "text": message.text, "user": {
+                msgsClone.append({"_id": str(message._id), "createdAt": message.createdAt, "text": message.text, "user": {
                     "_id": message.user.userId, "name": message.user.name, "avatar": message.user.avatar}})
+            msgsClone.reverse()
             userConversations.append(
-                {"userOne": conversation.userOne, "userTwo": conversation.userTwo, "conversationId": conversation.conversationId, "messages": messages})
+                {"userOne": conversation.userOne, "userTwo": conversation.userTwo, "conversationId": conversation.conversationId, "messages": msgsClone
+                 })
         return userConversations
 
 # class Sender(db.EmbeddedDocument):
