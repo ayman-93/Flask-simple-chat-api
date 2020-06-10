@@ -10,15 +10,16 @@ from pymongo.errors import DuplicateKeyError
 from mongoengine.queryset.visitor import Q
 
 
-
-
 app = Flask(__name__)
 #app.config['SECRET_KEY'] = 'mysecret'
 
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet') #,manage_session=False)
+socketio = SocketIO(app, cors_allowed_origins="*",
+                    async_mode='eventlet')  # ,manage_session=False)
 
 app.config["MONGODB_HOST"] = "mongodb+srv://ayman:753258@aymancluster-ddsk0.mongodb.net/orag?retryWrites=true&w=majority"
 initialize_db(app)
+
+# eventlet.monkey_patch(socket=False)
 
 
 @app.route('/')
@@ -167,6 +168,11 @@ def handleMessage(data):
     # save the chages on the database
     conversation.save()
     print("new message to conversationId ", str(data['conversationId']))
+
+    # notification
+    #ch = sendChatMessage()
+    #res = ch.send(data['conversationId'], data['message']['user']['_id'], data['message']['user']['name'], data['receiverId'], 'receiverName', data['message']['text'])
+    #print ("notification response", str(res))
 
 
 @socketio.on('leaveConversation')
