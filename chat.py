@@ -5,20 +5,20 @@ from flask import Flask, request, Response
 import json
 
 from utilis.GetConversationId import GetConversationId
-from utilis.JSONEncoder import MongoengineEncoder
 from mongoengine.document import NotUniqueError
 from pymongo.errors import DuplicateKeyError
 from mongoengine.queryset.visitor import Q
-# import eventlet
+
+
+
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'mysecret'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+#app.config['SECRET_KEY'] = 'mysecret'
+
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet') #,manage_session=False)
 
 app.config["MONGODB_HOST"] = "mongodb+srv://ayman:753258@aymancluster-ddsk0.mongodb.net/orag?retryWrites=true&w=majority"
 initialize_db(app)
-# for socketio
-# eventlet.monkey_patch()
 
 
 @app.route('/')
@@ -182,5 +182,4 @@ def handleConnect():
 
 
 if __name__ == '__main__':
-    # app.run(host='0.0.0.0', debug=True)
-    socketio.run(app, host='0.0.0.0', debug=True)
+    socketio.run(app)
