@@ -1,5 +1,7 @@
 venv
 LinuxEnv
+winEnv
+uWsgiEnv
 .vscode
 
 # Created by https://www.gitignore.io/api/flask
