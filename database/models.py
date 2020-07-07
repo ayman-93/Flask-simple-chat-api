@@ -69,12 +69,12 @@ class User(db.Document):
 #     avatar = db.StringField(required=True)
 
 
-class Message(db.Document):
+class Message(db.EmbeddedDocument):
     # id = db.ObjectIdField(default=ObjectId,
     #                       unique=True, primary_key=True)
     messageId = db.UUIDField(required=True, binary=False,
                              default=lambda: uuid.uuid4())
-    conversationRef = db.ReferenceField('Conversation')
+    # conversationRef = db.ReferenceField('Conversation')
     createdAt = db.StringField(required=True, default=datetime.now().ctime())
     text = db.StringField(required=True)
     user = db.ReferenceField(User)
@@ -89,7 +89,7 @@ class Conversation(db.Document):
     conversationId = db.StringField(unique=True)
     createdAt = db.DateTimeField()
     updatedAt = db.DateTimeField(default=datetime.now().ctime(), required=True)
-    messages = db.ListField(db.ReferenceField(Message))
+    messages = db.EmbeddedDocumentListField(Message)
     # readStatus = db.BooleanField(default=False)
 
     # def updateReadStatus(self, userId):
@@ -120,17 +120,17 @@ class Conversation(db.Document):
         preparedMessages.reverse()
         return {"messages": preparedMessages, "unreadMesaages": unreadMesaages}
 
-    def addMessag(self, messagePk):
-        self.messages.append(messagePk)
+    def addMessage(self, message):
+        self.messages.append(message)
 
     def updateReadStatus(self, userId):
         # print("\n\n userId: ", userId)
         for message in self.messages:
             # print("\n\n\nmessage.user.userId: ", message.user.userId)
             if(message.user.userId != userId and message.readStatus):
-                Message.objects(pk=message.id).update_one(
-                    set__readStatus=False)
-                # message.readStatus = True
+                # Message.objects(pk=message.id).update_one(
+                #     set__readStatus=False)
+                message.readStatus = False
         self.save()
         # Conversation.objects(
         #     conversationId=str(conversationId)).update_one(set__messages__readStatus=True)

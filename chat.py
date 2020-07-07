@@ -161,15 +161,15 @@ def handleMessage(data):
 
     # set the new message
     newMessage = Message(
-        messageId=data['message']['_id'], createdAt=str(data['message']['createdAt']), text=data['message']['text'], user=sender, conversationRef=conversation)
+        messageId=data['message']['_id'], createdAt=str(data['message']['createdAt']), text=data['message']['text'], user=sender)  # , conversationRef=conversation)
     print("\n\n\nnewMessage: ", newMessage.to_json(), "\nchat.py L:160")
 
     print("\n\n\nnewMessage: ", newMessage, "\nchat.py L:162")
 
     # save the chages on the database
-    newMessage.save()
+    # newMessage.save()
     # add the new message to messages in the conversation
-    conversation.addMessag(newMessage.pk)
+    conversation.addMessage(newMessage)
     # set readStatus
     # conversation.updateReadStatus(userId=sender.userId)
 
