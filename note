@@ -1,0 +1,4 @@
+1. active env -> source ./.venv/bin/activate
+2. run -> gunicorn --reload --bind 159.65.169.194:8933 wsgi:app &
+2.1 gunicorn --worker-class eventlet -w 1 --reload --bind 159.65.169.194:8933 wsgi:app &
+3. inactive env -> deactivate

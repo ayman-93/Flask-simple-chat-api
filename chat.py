@@ -19,6 +19,8 @@ socketio = SocketIO(app, cors_allowed_origins="*",
 app.config["MONGODB_HOST"] = "mongodb+srv://ayman:753258@aymancluster-ddsk0.mongodb.net/orag2?retryWrites=true&w=majority"
 initialize_db(app)
 
+# eventlet.monkey_patch(socket=False)
+
 
 @app.route('/')
 def index():
@@ -175,6 +177,11 @@ def handleMessage(data):
 
     conversation.save()
     print("new message to conversationId ", str(data['conversationId']))
+
+    # notification
+    #ch = sendChatMessage()
+    #res = ch.send(data['conversationId'], data['message']['user']['_id'], data['message']['user']['name'], data['receiverId'], 'receiverName', data['message']['text'])
+    #print ("notification response", str(res))
 
 
 @socketio.on("updateReadStatus")
