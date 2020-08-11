@@ -131,7 +131,7 @@ class Conversation(db.Document):
                 # Message.objects(pk=message.id).update_one(
                 #     set__readStatus=False)
                 message.readStatus = False
-        self.save()
+        self.saveWithouUpdateAt()
         # Conversation.objects(
         #     conversationId=str(conversationId)).update_one(set__messages__readStatus=True)
 
@@ -154,4 +154,7 @@ class Conversation(db.Document):
             self.conversationId = GetConversationId(
                 self.userOne['userId'], self.userTwo['userId'])
 
+        return super(Conversation, self).save(*args, **kwargs)
+
+    def saveWithouUpdateAt(self, *args, **kwargs):
         return super(Conversation, self).save(*args, **kwargs)

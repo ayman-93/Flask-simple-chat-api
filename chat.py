@@ -194,7 +194,7 @@ def updateReadStatus(data):
     conversation = Conversation.objects.get(
         conversationId=str(data['conversationId']))
     conversation.updateReadStatus(userId=userId)
-    conversation.save()
+    # conversation.saveWithouUpdateAt()
     # conversation = Conversation.objects(
     #     conversationId=str(conversationId)).update_one(set__messages__readStatus=True)
 
