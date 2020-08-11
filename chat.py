@@ -11,12 +11,12 @@ from mongoengine.queryset.visitor import Q
 
 
 app = Flask(__name__)
-#app.config['SECRET_KEY'] = 'mysecret'
+# app.config['SECRET_KEY'] = 'mysecret'
 
 socketio = SocketIO(app, cors_allowed_origins="*",
                     async_mode='eventlet')  # ,manage_session=False)
 
-app.config["MONGODB_HOST"] = "mongodb+srv://ayman:753258@aymancluster-ddsk0.mongodb.net/orag?retryWrites=true&w=majority"
+app.config["MONGODB_HOST"] = "mongodb+srv://ayman:753258@aymancluster-ddsk0.mongodb.net/orag2?retryWrites=true&w=majority"
 initialize_db(app)
 
 # eventlet.monkey_patch(socket=False)
@@ -37,12 +37,12 @@ def index():
 def get_conversationById(userId):
     print(userId)
     # conversation = Conversation.objects.get().filter().to_json()
-    userConversations = User.objects(
+    user = User.objects(
         userId=userId).first()
-    print("\n\n\nuserConversations ", userConversations)
-    if userConversations is None:
+    print("\n\n\nuserConversations ", user)
+    if user is None:
         return Response(json.dumps({"msg": "no user found.."}))
-    userConversations = userConversations.getUserConversation()
+    userConversations = user.getUserConversation()
     return Response(json.dumps(userConversations), mimetype="application/json", status=200)
 
 # update user
@@ -104,7 +104,7 @@ def handlStartConversation(data):
         join_room(str(conversation['conversationId']))
         print('join new conversationId ', str(conversation['conversationId']))
         # send the conversationId and the messages array
-        emit("conversationOpen", {"conversationId": conversation['conversationId'], "messages": conversation['messages']},
+        emit("conversationOpen", {"conversationId": conversation['conversationId'], "messages": conversation['messages'], "unreadMesaages": 0},
              room=conversation['conversationId'])
 
     # if the conversation already exist.
@@ -128,7 +128,7 @@ def handlStartConversation(data):
             conversationId=oldConversationId).to_json())
         conversation['messages'].reverse()
         # send the conversationId and the old messages array
-        emit("conversationOpen", {"conversationId": conversation['conversationId'], "messages": messages},
+        emit("conversationOpen", {"conversationId": conversation['conversationId'], "messages": messages['messages'], "unreadMesaages": messages['unreadMesaages']},
              room=oldConversationId)
 
     except Exception as e:
@@ -155,17 +155,26 @@ def handleMessage(data):
     except User.DoesNotExist:
         sender = User(userId=data['message']['user']['_id'], name=data['message']
                       ['user']['name'], avatar=data['message']['user']['avatar']).save()
-    # set the new message
-    newMessage = Message(
-        _id=data['message']['_id'], createdAt=str(data['message']['createdAt']), text=data['message']['text'], user=sender)
+        print("\n\n\nsender: ", sender, "\nchat.py L:156")
 
     # get the conversation
     conversation = Conversation.objects.get(
         conversationId=str(data['conversationId']))
 
-    # add the new message to messages in the conversation
-    conversation.messages.append(newMessage)
+    # set the new message
+    newMessage = Message(
+        messageId=data['message']['_id'], createdAt=str(data['message']['createdAt']), text=data['message']['text'], user=sender)  # , conversationRef=conversation)
+    print("\n\n\nnewMessage: ", newMessage.to_json(), "\nchat.py L:160")
+
+    print("\n\n\nnewMessage: ", newMessage, "\nchat.py L:162")
+
     # save the chages on the database
+    # newMessage.save()
+    # add the new message to messages in the conversation
+    conversation.addMessage(newMessage)
+    # set readStatus
+    # conversation.updateReadStatus(userId=sender.userId)
+
     conversation.save()
     print("new message to conversationId ", str(data['conversationId']))
 
@@ -173,6 +182,21 @@ def handleMessage(data):
     #ch = sendChatMessage()
     #res = ch.send(data['conversationId'], data['message']['user']['_id'], data['message']['user']['name'], data['receiverId'], 'receiverName', data['message']['text'])
     #print ("notification response", str(res))
+
+
+@socketio.on("updateReadStatus")
+def updateReadStatus(data):
+    conversationId = data['conversationId']
+    userId = data['id']
+    print("\n\n\nmessage in updateReadStatus \nF:chat,L:180\n\n ")
+    # Conversation(conversationId=conversationId).updateReadStatus()
+
+    conversation = Conversation.objects.get(
+        conversationId=str(data['conversationId']))
+    conversation.updateReadStatus(userId=userId)
+    # conversation.saveWithouUpdateAt()
+    # conversation = Conversation.objects(
+    #     conversationId=str(conversationId)).update_one(set__messages__readStatus=True)
 
 
 @socketio.on('leaveConversation')
@@ -188,4 +212,4 @@ def handleConnect():
 
 
 if __name__ == '__main__':
-    socketio.run(app)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True)
